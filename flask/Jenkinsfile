@@ -4,8 +4,6 @@ pipeline {
         IMAGE_NAME = "flask-app"
         CONTAINER_NAME = "flask-web-server"
         NETWORK_NAME = "my-app-network"
-        REMOTE_USER = 'ellie'          
-        REMOTE_IP   = '192.168.30.17'
         SSH_KEY_ID  = 'my-server-ssh-key'
         // Pass the MySQL password securely
         MYSQL_PW = credentials('mysql-root-pw')
@@ -15,7 +13,7 @@ pipeline {
         stage('Setup Network') {
             steps {
                 sshagent(["${SSH_KEY_ID}"]) {
-                    sh "ssh -o StrictHostKeyChecking=no ${REMOTE_USER}@${REMOTE_IP} 'docker network create ${NETWORK_NAME} || true'"
+                    sh "ssh -o StrictHostKeyChecking=no ${params.REMOTE_USER}@${params.REMOTE_IP} 'docker network create ${NETWORK_NAME} || true'"
                 }
             }
         }
@@ -88,9 +86,9 @@ if __name__ == "__main__":
                 sshagent(["${SSH_KEY_ID}"]) {
                     script {
                         sh "tar -czf project_source.tar.gz --exclude='*.tar.gz' --exclude='.git' ."
-                        sh "scp -o StrictHostKeyChecking=no project_source.tar.gz ${REMOTE_USER}@${REMOTE_IP}:/tmp/"
+                        sh "scp -o StrictHostKeyChecking=no project_source.tar.gz ${params.REMOTE_USER}@${params.REMOTE_IP}:/tmp/"
                         sh """
-                            ssh -o StrictHostKeyChecking=no ${REMOTE_USER}@${REMOTE_IP} "
+                            ssh -o StrictHostKeyChecking=no ${params.REMOTE_USER}@${params.REMOTE_IP} "
                                 set -e
                                 mkdir -p ~/build/${IMAGE_NAME}
                                 tar -xzf /tmp/project_source.tar.gz -C ~/build/${IMAGE_NAME}
@@ -130,7 +128,7 @@ if __name__ == "__main__":
             steps {
                 sshagent(["${SSH_KEY_ID}"]) {
                     sh """
-                        ssh -o StrictHostKeyChecking=no ${REMOTE_USER}@${REMOTE_IP} "
+                        ssh -o StrictHostKeyChecking=no ${params.REMOTE_USER}@${params.REMOTE_IP} "
                             for i in {1..5}; do
                                 if curl -s -f 'http://localhost:5000/filter/neighborhood?neighborhood=West%20Loop' > /dev/null; then
                                     echo 'SUCCESS: Neighborhood API is UP'

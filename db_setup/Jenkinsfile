@@ -5,9 +5,7 @@ pipeline {
         MYSQL_PW = credentials('mysql-root-pw')
         BASE_IMAGE = "mysql:8.0"
         NETWORK_NAME = "my-app-network"
-        CONTAINER_NAME = "my-mysql-db" 
-        REMOTE_USER = 'ellie'          
-        REMOTE_IP   = '192.168.30.17'        
+        CONTAINER_NAME = "my-mysql-db"        
         SSH_KEY_ID  = 'my-server-ssh-key'
     }
     stages {
@@ -17,7 +15,7 @@ pipeline {
                             script {
                                 // This script checks if the local Image ID matches the latest one on Docker Hub
                                 def updateStatus = sh(script: """
-                                    ssh -o StrictHostKeyChecking=no ${REMOTE_USER}@${REMOTE_IP} "
+                                    ssh -o StrictHostKeyChecking=no ${params.REMOTE_USER}@${params.REMOTE_IP} "
                                         # Get the ID of the image currently used by the container
                                         OLD_ID=\\\$(docker inspect --format='{{.Image}}' ${CONTAINER_NAME} 2>/dev/null || echo 'none')
                                         
@@ -50,7 +48,7 @@ pipeline {
             steps {
                 sshagent(["${SSH_KEY_ID}"]) {
                     sh """
-                        ssh -o StrictHostKeyChecking=no ${REMOTE_USER}@${REMOTE_IP} "
+                        ssh -o StrictHostKeyChecking=no ${params.REMOTE_USER}@${params.REMOTE_IP} "
                             echo 'Preparing Environment...' && \
                             docker network create ${NETWORK_NAME} || true && \
                             docker rm -f ${CONTAINER_NAME} || true && \
@@ -72,7 +70,7 @@ pipeline {
             steps {
                 sshagent(["${SSH_KEY_ID}"]) {
                     sh """
-                        ssh -o StrictHostKeyChecking=no ${REMOTE_USER}@${REMOTE_IP} "
+                        ssh -o StrictHostKeyChecking=no ${params.REMOTE_USER}@${params.REMOTE_IP} "
                             echo 'Verifying MySQL Health...'
                             
                             # Using a loop to check for readiness (up to 10 attempts)

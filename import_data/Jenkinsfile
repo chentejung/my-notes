@@ -8,8 +8,6 @@ pipeline {
     environment {
         MYSQL_PW = credentials('mysql-root-pw')
         SSH_KEY_ID  = 'my-server-ssh-key'
-        REMOTE_USER = 'ellie'          
-        REMOTE_IP   = '192.168.30.17'
         DB_NAME  = 'restaurant_db'
         CONTAINER_NAME = 'my-mysql-db'
     }
@@ -140,7 +138,7 @@ pipeline {
         steps {
             sshagent(["${SSH_KEY_ID}"]) {
             sh """
-            ssh -o StrictHostKeyChecking=no "$REMOTE_USER@$REMOTE_IP" <<'REMOTE'
+            ssh -o StrictHostKeyChecking=no "${params.REMOTE_USER}@${params.REMOTE_IP}" <<'REMOTE'
             set -e
 
             echo "1. Copy CSV into container"
@@ -192,7 +190,7 @@ REMOTE
                     steps {
                         sshagent(["${SSH_KEY_ID}"]) {
                             sh """
-                                ssh -o StrictHostKeyChecking=no "$REMOTE_USER@$REMOTE_IP" <<'REMOTE'
+                                ssh -o StrictHostKeyChecking=no "${params.REMOTE_USER}@${params.REMOTE_IP}" <<'REMOTE'
                                 set -e
                                 
                                 echo "Calculating CSV record count..."
