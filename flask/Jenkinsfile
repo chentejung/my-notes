@@ -73,6 +73,16 @@ def filter_by_neighborhood():
     conn.close()
     return jsonify(results)
 
+@app.route("/filter/score")
+def filter_by_score():
+    score = request.args.get("score")
+    conn = get_db_connection()
+    cursor = conn.cursor(dictionary=True)
+    cursor.execute("SELECT * FROM restaurants WHERE ROUND(review_score, 1) >= %s", (score,))
+    results = cursor.fetchall()
+    conn.close()
+    return jsonify(results)
+
 
 if __name__ == "__main__":
 
