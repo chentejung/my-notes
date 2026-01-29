@@ -1,0 +1,236 @@
+pipeline {
+    agent any
+    
+    parameters {
+        file(name: 'Chicago_Restaurant_Data.csv', description: 'Upload the Chicago Restaurant CSV file')
+    }
+    
+    environment {
+        MYSQL_PW = credentials('mysql-root-pw')
+        SSH_KEY_ID  = 'my-server-ssh-key'
+        REMOTE_USER = 'ellie'          
+        REMOTE_IP   = '192.168.30.17'
+        DB_NAME  = 'restaurant_db'
+        CONTAINER_NAME = 'my-mysql-db'
+    }
+    
+    stages {
+        stage('Prepare Data') {
+            steps {
+                script {
+                    if (!fileExists('Chicago_Restaurant_Data.csv')) {
+                        echo "No file uploaded. Generating sample CSV data..."
+                        def csvContent = """id,name,address,cuisine_type,avg_price,review_score,founded_year,neighborhood
+1,Daley's Restaurant,6246 S Cottage Grove Ave,American/Diner,\$,4.4,1892,Woodlawn
+2,The Walnut Room,111 N State St,American,\$\$,4.3,1905,The Loop
+3,Pompei,1531 W Taylor St,Italian,\$,4.5,1909,Little Italy
+4,Valois Restaurant,1518 E 53rd St,American/Diner,\$,4.5,1921,Hyde Park
+5,Margie's Candies,1960 N Western Ave,Ice Cream/Diner,\$,4.6,1921,Bucktown
+6,Green Door Tavern,678 N Orleans St,Pub Food,\$\$,4.4,1921,River North
+7,Tufano's Vernon Park Tap,1073 W Vernon Park Pl,Italian,\$\$,4.6,1930,Little Italy
+8,Twin Anchors,1655 N Sedgwick St,BBQ/Ribs,\$\$,4.5,1932,Old Town
+9,Billy Goat Tavern,430 N Michigan Ave,American,\$,4.2,1934,River North
+10,Al's #1 Italian Beef,1079 W Taylor St,Italian Beef,\$,4.3,1938,Little Italy
+11,Gene & Georgetti,500 N Franklin St,Steakhouse,\$\$\$\$,4.5,1941,River North
+12,Manny's Deli,1141 S Jefferson St,Jewish Deli,\$\$,4.6,1942,South Loop
+13,Superdawg Drive-In,6363 N Milwaukee Ave,Hot Dogs,\$,4.6,1948,Norwood Park
+14,Calumet Fisheries,3259 E 95th St,Seafood/Smokehouse,\$,4.7,1948,South Deering
+15,Candelite Chicago,7452 N Western Ave,Pizza,\$\$,4.5,1950,Rogers Park
+16,Club Lago,331 W Superior St,Italian,\$\$,4.6,1952,River North
+17,Lem's Bar-B-Q,311 E 75th St,BBQ,\$\$,4.4,1954,Chatham
+18,Old Town Ale House,219 W North Ave,Bar/Pub,\$,4.5,1958,Old Town
+19,Butch McGuire's,20 W Division St,Pub Food,\$\$,4.2,1961,Near North Side
+20,Giordano's,223 W Jackson Blvd,Deep Dish Pizza,\$\$,4.3,1974,The Loop
+21,Lou Malnati's,439 N Wells St,Deep Dish Pizza,\$\$,4.5,1971,River North
+22,Alinea,1723 N Halsted St,Molecular Gastronomy,\$\$\$\$,4.8,2005,Lincoln Park
+23,Girl & The Goat,809 W Randolph St,New American,\$\$\$,4.7,2010,West Loop
+24,Au Cheval,800 W Randolph St,Upscale Diner,\$\$,4.6,2012,West Loop
+25,Monteverde,1020 W Madison St,Italian,\$\$\$,4.7,2015,West Loop
+26,Kasama,1001 N Winchester Ave,Filipino,\$\$\$,4.8,2020,Ukrainian Village
+27,Oriole,661 W Walnut St,Contemporary,\$\$\$\$,4.9,2016,West Loop
+28,Smyth,177 N Ada St,New American,\$\$\$\$,4.8,2016,West Loop
+29,Lula Cafe,2537 N Kedzie Blvd,Farm-to-Table,\$\$,4.7,1999,Logan Square
+30,Bavette's Bar & Boeuf,218 W Kinzie St,Steakhouse,\$\$\$\$,4.8,2012,River North
+31,Gibsons Bar & Steakhouse,1028 N Rush St,Steakhouse,\$\$\$\$,4.6,1989,Gold Coast
+32,Pequod's Pizza,2207 N Clybourn Ave,Pizza,\$\$,4.6,1970,Lincoln Park
+33,Mi Tocaya Antojería,2800 W Logan Blvd,Mexican,\$\$,4.6,2017,Logan Square
+34,Virtue Restaurant,1462 E 53rd St,Southern,\$\$\$,4.7,2018,Hyde Park
+35,Rose Mary,932 W Fulton Market,Italian/Croatian,\$\$\$,4.7,2021,West Loop
+36,Kyoten,2507 W Armitage Ave,Sushi/Omakase,\$\$\$\$,4.9,2018,Logan Square
+37,Galit,2429 N Lincoln Ave,Middle Eastern,\$\$\$,4.7,2019,Lincoln Park
+38,Ever,1340 W Fulton St,Contemporary,\$\$\$\$,4.8,2020,West Loop
+39,Daisies,2375 N Milwaukee Ave,Pasta/Veg-forward,\$\$,4.7,2017,Logan Square
+40,Akahoshi Ramen,2340 N California Ave,Japanese/Ramen,\$\$,4.8,2023,Logan Square
+41,Alla Vita,564 W Randolph St,Italian,\$\$\$,4.5,2021,West Loop
+42,Elina's,1202 N Wells St,Italian-American,\$\$\$,4.6,2022,West Town
+43,Gibsons Italia,233 N Canal St,Italian/Steak,\$\$\$\$,4.6,2017,West Loop
+44,Le Colonial,57 E Oak St,French-Vietnamese,\$\$\$,4.5,1996,Gold Coast
+45,Mon Ami Gabi,2300 N Lincoln Park W,French Bistro,\$\$\$,4.6,1998,Lincoln Park
+46,Pizzeria Portofino,317 N Clark St,Italian/Pizza,\$\$,4.4,2019,River North
+47,Valhalla,916 W Fulton Market,Global,\$\$\$\$,4.7,2022,West Loop
+48,Esme,2200 N Clark St,Contemporary,\$\$\$\$,4.7,2021,Lincoln Park
+49,Obelix,700 N Sedgwick St,French,\$\$\$,4.7,2022,River North
+50,Indienne,217 W Huron St,Progressive Indian,\$\$\$,4.8,2022,River North
+51,Boonie's Filipino,4337 N Western Ave,Filipino,\$\$,4.7,2023,Lincoln Square
+52,Atelier,4835 N Western Ave,New American,\$\$\$\$,4.8,2023,Lincoln Square
+53,Warlord,3197 N Milwaukee Ave,Live Fire/American,\$\$\$,4.6,2023,Avondale
+54,Giant,3209 W Armitage Ave,New American,\$\$\$,4.7,2016,Logan Square
+55,Schwa,1466 N Ashland Ave,New American,\$\$\$\$,4.7,2005,Wicker Park
+56,Elske,1350 W Randolph St,Danish/American,\$\$\$,4.7,2016,West Loop
+57,Sepia,123 N Jefferson St,American,\$\$\$,4.6,2007,West Loop
+58,The Loyalist,177 N Ada St,Burger/Bar,\$\$,4.7,2016,West Loop
+59,Demera,4801 N Broadway,Ethiopian,\$\$,4.7,2007,Uptown
+60,Sun Wah BBQ,5039 N Broadway,Chinese BBQ,\$\$,4.5,1987,Uptown
+61,HaiSous,1800 S Carpenter St,Vietnamese,\$\$\$,4.6,2017,Pilsen
+62,S.K.Y.,1239 W 18th St,New American,\$\$\$,4.7,2017,Pilsen
+63,Dusek's,1227 W 18th St,Gastropub,\$\$,4.5,2013,Pilsen
+64,Carnivale,702 W Fulton Market,Latin Fusion,\$\$\$,4.4,2005,West Loop
+65,Duck Inn,2701 S Eleanor St,New American,\$\$\$,4.7,2014,Bridgeport
+66,Ricobene's,252 W 26th St,Italian/Sandwiches,\$,4.6,1946,Bridgeport
+67,Spacca Napoli,1769 W Sunnyside Ave,Neapolitan Pizza,\$\$,4.7,2006,Ravenswood
+68,Bayan Ko,1810 W Montrose Ave,Filipino/Cuban,\$\$,4.7,2018,Ravenswood
+69,Hopleaf,5148 N Clark St,Belgian/Gastropub,\$\$,4.7,1992,Andersonville
+70,Big Jones,5347 N Clark St,Southern,\$\$,4.5,2008,Andersonville
+71,Anteprima,5316 N Clark St,Italian,\$\$\$,4.6,2007,Andersonville
+72,Honey Butter Fried Chicken,3361 N Elston Ave,Fried Chicken,\$\$,4.5,2013,Avondale
+73,Parachute,3500 N Elston Ave,Korean Fusion,\$\$\$,4.6,2014,Avondale
+74,Kuma's Corner,2900 W Belmont Ave,Burgers,\$\$,4.5,2005,Avondale
+75,Smoque BBQ,3800 N Pulaski Rd,BBQ,\$\$,4.7,2006,Irving Park
+76,Sabri Nihari,2502 W Devon Ave,Pakistani,\$\$,4.3,1996,West Ridge
+77,Ghareeb Nawaz,2032 W Devon Ave,Indian/Pakistani,\$,4.4,1993,West Ridge
+78,Hema's Kitchen,2439 W Devon Ave,Indian,\$\$,4.2,1992,West Ridge
+79,Chiu Quon Bakery,2253 S Wentworth Ave,Chinese Bakery,\$,4.6,1986,Chinatown
+80,Lao Sze Chuan,2172 S Archer Ave,Szechuan,\$\$,4.4,1998,Chinatown
+81,Qing Xiang Yuan Dumplings,2002 S Wentworth Ave,Dumplings,\$\$,4.6,2014,Chinatown
+82,MingHin Cuisine,2168 S Archer Ave,Dim Sum,\$\$,4.5,2010,Chinatown
+83,Fat Rice,2957 W Diversey Ave,Macanese,\$\$\$,4.5,2012,Logan Square
+84,Longman & Eagle,2657 N Kedzie Ave,Gastropub,\$\$,4.5,2010,Logan Square
+85,Bang Bang Pie & Biscuits,2051 N California Ave,Bakery,\$,4.6,2012,Logan Square
+86,Boka,1729 N Halsted St,American,\$\$\$\$,4.7,2003,Lincoln Park
+87,North Pond,2610 N Cannon Dr,American,\$\$\$\$,4.7,1998,Lincoln Park
+88,Twin Anchors,1655 N Sedgwick St,BBQ,\$\$,4.5,1932,Old Town
+89,Topolobampo,445 N Clark St,Mexican,\$\$\$\$,4.7,1989,River North
+90,Frontera Grill,445 N Clark St,Mexican,\$\$\$,4.6,1987,River North
+91,Shaw's Crab House,21 E Hubbard St,Seafood,\$\$\$,4.6,1984,River North
+92,Joe's Seafood,60 E Grand Ave,Seafood/Steak,\$\$\$\$,4.7,2000,River North
+93,Tavern on Rush,1031 N Rush St,Steak/Italian,\$\$\$,4.4,1998,Gold Coast
+94,Maple & Ash,8 W Maple St,Steakhouse,\$\$\$\$,4.6,2015,Gold Coast
+95,Hugo's Frog Bar,1024 N Rush St,Seafood,\$\$\$,4.5,1997,Gold Coast
+96,Quartino Ristorante,626 N State St,Italian,\$\$,4.5,2005,River North
+97,Pizzeria Uno,29 E Ohio St,Deep Dish Pizza,\$\$,4.3,1943,River North
+98,Portillo's,100 W Ontario St,Hot Dogs/Beef,\$,4.5,1963,River North
+99,Wildberry Pancakes,130 E Randolph St,Breakfast,\$\$,4.7,2004,The Loop
+100,The Dearborn,145 N Dearborn St,American,\$\$\$,4.6,2016,The Loop
+"""
+                        writeFile file: 'Chicago_Restaurant_Data.csv', text: csvContent
+                    }
+                }
+            }
+        }
+
+        stage('Remote File Transfer') {
+            steps {
+                sshagent(["${SSH_KEY_ID}"]) {
+                    sh "scp -o StrictHostKeyChecking=no Chicago_Restaurant_Data.csv \${REMOTE_USER}@\${REMOTE_IP}:/tmp/Chicago_Restaurant_Data.csv"
+                }
+            }
+        }
+
+        stage('Initialize & Import') {
+        steps {
+            sshagent(["${SSH_KEY_ID}"]) {
+            sh """
+            ssh -o StrictHostKeyChecking=no "$REMOTE_USER@$REMOTE_IP" <<'REMOTE'
+            set -e
+
+            echo "1. Copy CSV into container"
+            test -f /tmp/Chicago_Restaurant_Data.csv
+            docker cp /tmp/Chicago_Restaurant_Data.csv \
+            "$CONTAINER_NAME:/var/lib/mysql-files/Chicago_Restaurant_Data.csv"
+
+
+            echo "2. Create database if not exists"
+            docker exec -e MYSQL_PWD="$MYSQL_PW" "$CONTAINER_NAME" \
+                mysql -u root -e "CREATE DATABASE IF NOT EXISTS $DB_NAME;"
+
+            echo "3. Create table"
+            docker exec -i -e MYSQL_PWD="$MYSQL_PW" "$CONTAINER_NAME" \
+            mysql -u root <<'SQL'
+            CREATE DATABASE IF NOT EXISTS restaurant_db;
+            USE restaurant_db;
+            DROP TABLE IF EXISTS restaurants;
+            CREATE TABLE restaurants (
+            id INT NOT NULL,
+            name VARCHAR(255),
+            address VARCHAR(255),
+            cuisine_type VARCHAR(100),
+            avg_price VARCHAR(100),
+            review_score FLOAT,
+            founded_year INT,
+            neighborhood VARCHAR(100),
+            PRIMARY KEY (id)
+            );
+SQL
+
+            echo "4. Import data"
+            docker exec -i -e MYSQL_PWD="$MYSQL_PW" "$CONTAINER_NAME" \
+            mysql -u root "$DB_NAME" <<'SQL'
+            LOAD DATA INFILE '/var/lib/mysql-files/Chicago_Restaurant_Data.csv'
+            INTO TABLE restaurants
+            FIELDS TERMINATED BY ','
+            OPTIONALLY ENCLOSED BY '"'
+            LINES TERMINATED BY '\n'
+            IGNORE 1 ROWS
+            (id, name, address, cuisine_type, avg_price, review_score, founded_year, neighborhood);
+SQL
+REMOTE
+            """
+            }
+        }
+        }
+        stage('Verify Data Integrity') {
+                    steps {
+                        sshagent(["${SSH_KEY_ID}"]) {
+                            sh """
+                                ssh -o StrictHostKeyChecking=no "$REMOTE_USER@$REMOTE_IP" <<'REMOTE'
+                                set -e
+                                
+                                echo "Calculating CSV record count..."
+                                # wc -l counts newline characters. 
+                                # We subtract 1 for the header.
+                                CSV_LINES=\$(wc -l < /tmp/Chicago_Restaurant_Data.csv)
+                                EXPECTED_COUNT=\$((CSV_LINES - 1))
+
+                                echo "Querying Database record count..."
+                                # -N (skip headers) and -s (silent) gives us just the raw integer
+                                ACTUAL_COUNT=\$(docker exec -e MYSQL_PWD="$MYSQL_PW" "$CONTAINER_NAME" \
+                                    mysql -u root "$DB_NAME" -N -s -e "SELECT COUNT(*) FROM restaurants;")
+
+                                echo "Results:"
+                                echo "--------------------------"
+                                echo "Expected (CSV): \$EXPECTED_COUNT"
+                                echo "Actual (DB):   \$ACTUAL_COUNT"
+                                echo "--------------------------"
+
+                                if [ "\$EXPECTED_COUNT" -eq "\$ACTUAL_COUNT" ]; then
+                                    echo "SUCCESS: Database count matches CSV records."
+                                else
+                                    echo "ERROR: Count mismatch! Expected \$EXPECTED_COUNT but found \$ACTUAL_COUNT."
+                                    exit 1
+                                fi
+REMOTE
+                            """
+                        }
+                    }
+                }
+    }
+    post {
+    always {
+        sh '''
+        mkdir -p reports
+        curl -s "$BUILD_URL/consoleText" -o reports/console.log
+        '''
+        archiveArtifacts artifacts: 'reports/console.log', fingerprint: true
+    }
+    }
+}

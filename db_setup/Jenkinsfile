@@ -1,0 +1,107 @@
+pipeline {
+    agent any
+    environment {
+        pipe_name = 'Database setup'
+        MYSQL_PW = credentials('mysql-root-pw')
+        BASE_IMAGE = "mysql:8.0"
+        NETWORK_NAME = "my-app-network"
+        CONTAINER_NAME = "my-mysql-db" 
+        REMOTE_USER = 'ellie'          
+        REMOTE_IP   = '192.168.30.17'        
+        SSH_KEY_ID  = 'my-server-ssh-key'
+    }
+    stages {
+        stage('Check MySQL Image Change') {
+                    steps {
+                        sshagent(["${SSH_KEY_ID}"]) {
+                            script {
+                                // This script checks if the local Image ID matches the latest one on Docker Hub
+                                def updateStatus = sh(script: """
+                                    ssh -o StrictHostKeyChecking=no ${REMOTE_USER}@${REMOTE_IP} "
+                                        # Get the ID of the image currently used by the container
+                                        OLD_ID=\\\$(docker inspect --format='{{.Image}}' ${CONTAINER_NAME} 2>/dev/null || echo 'none')
+                                        
+                                        # Pull the latest image
+                                        docker pull ${BASE_IMAGE} > /dev/null
+                                        
+                                        # Get the ID of the newly pulled image
+                                        NEW_ID=\\\$(docker images -q ${BASE_IMAGE} | head -n 1)
+                                        
+                                        if [ \\\"\\\$OLD_ID\\\" = \\\"sha256:\\\$NEW_ID\\\" ] || [ \\\"\\\$OLD_ID\\\" = \\\"\\\$NEW_ID\\\" ]; then
+                                            echo 'NO_CHANGE'
+                                        else
+                                            echo 'IMAGE_UPDATED'
+                                        fi
+                                    "
+                                """, returnStdout: true).trim()
+
+                                if (updateStatus == 'NO_CHANGE') {
+                                    echo "Image ${BASE_IMAGE} is already up to date. Skipping redeploy."
+                                    // Use 'error' to stop here if you only want to run on changes
+                                    // error("Stop: No image update found.") 
+                                } else {
+                                    echo "New version of ${BASE_IMAGE} found. Proceeding with deploy..."
+                                }
+                            }
+                        }
+                    }
+                }
+        stage('Remote Deploy MySQL') {
+            steps {
+                sshagent(["${SSH_KEY_ID}"]) {
+                    sh """
+                        ssh -o StrictHostKeyChecking=no ${REMOTE_USER}@${REMOTE_IP} "
+                            echo 'Preparing Environment...' && \
+                            docker network create ${NETWORK_NAME} || true && \
+                            docker rm -f ${CONTAINER_NAME} || true && \
+                            
+                            echo 'Deploying MySQL Container...' && \
+                            docker run -d --name ${CONTAINER_NAME} \
+                                --network ${NETWORK_NAME} \
+                                -v mysql_data:/var/lib/mysql \
+                                -e MYSQL_ROOT_PASSWORD=${MYSQL_PW} \
+                                -p 3306:3306 \
+                                ${BASE_IMAGE}
+                        "
+                    """
+                }
+            }
+        }
+
+        stage('Verify Connection') {
+            steps {
+                sshagent(["${SSH_KEY_ID}"]) {
+                    sh """
+                        ssh -o StrictHostKeyChecking=no ${REMOTE_USER}@${REMOTE_IP} "
+                            echo 'Verifying MySQL Health...'
+                            
+                            # Using a loop to check for readiness (up to 10 attempts)
+                            for i in {1..10}; do
+                                if docker exec ${CONTAINER_NAME} mysqladmin -u root -p${MYSQL_PW} ping; then
+                                    echo 'MySQL is UP and responding!'
+                                    exit 0
+                                fi
+                                echo 'MySQL is still initializing... waiting 5s (Attempt \$i/10)'
+                                sleep 5
+                            done
+                            
+                            echo 'MySQL failed to respond after 50 seconds.'
+                            docker logs ${CONTAINER_NAME}
+                            exit 1
+                        "
+                    """
+                }
+            }
+        }
+    }
+    post {
+    always {
+        sh '''
+        mkdir -p reports
+        curl -s "$BUILD_URL/consoleText" -o reports/console.log
+        '''
+        archiveArtifacts artifacts: 'reports/console.log', fingerprint: true
+    }
+    }
+
+    }
