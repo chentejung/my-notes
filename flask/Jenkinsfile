@@ -103,8 +103,8 @@ if __name__ == "__main__":
             steps {
                 sshagent(["${SSH_KEY_ID}"]) {
                     script {
-                        sh "tar -czf project_source.tar.gz --exclude='*.tar.gz' --exclude='.git' ."
-                        sh "scp -o StrictHostKeyChecking=no project_source.tar.gz ${params.REMOTE_USER}@${params.REMOTE_IP}:/tmp/"
+                        sh "tar -czf ../project_source.tar.gz --exclude=.git ."
+                        sh "scp -o StrictHostKeyChecking=no ../project_source.tar.gz ${params.REMOTE_USER}@${params.REMOTE_IP}:/tmp/"
                         sh """
                             ssh -o StrictHostKeyChecking=no ${params.REMOTE_USER}@${params.REMOTE_IP} "
                                 set -e
